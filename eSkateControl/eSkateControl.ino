@@ -14,13 +14,14 @@ bool ramping = false;
 
 void setup() {
   //Declaring PWM pin as output
+  Serial.begin(9600);
   pinMode(pwm_pin, OUTPUT);
   pinMode(brake_pin, OUTPUT);
   pinMode(feedback_pin, OUTPUT);
 }
 
 void loop() {
-  Serial.print("hello!");
+  //Serial.print("hello!");
   //init timeSince as time since controller starts
   //Check input to  controller
   command = getCommand();
@@ -28,6 +29,14 @@ void loop() {
   speed = getSpeed();
   //Execute current input
   state = execCommand(state,command);
+
+  //Update I/Os
+  analogWrite(pwm_pin, currentPWM);
+  
+  //Development
+  delay(50);
+  printPWM();
+  printState();
 }
 
 int getSpeed() {
@@ -51,7 +60,7 @@ int execCommand(int state, int command){
     // statements
     if (state == 0 || state == 2) { //if idle or going forward
       //ramping
-      goForward(getSpeed(), currentPWM);
+      goForward(getSpeed());
     }
     if (currentPWM < 255){
       return 2; //coast
@@ -63,33 +72,57 @@ int execCommand(int state, int command){
   case 3:
     // statements
     break;
-  default:
+  default: //4 - coast
     // statements
     break;
   }
 }
 
 
-void goForward(int speed, int currentPWM) {
+void goForward(int speed) {
   //Ramp PWM duty cycle
     if (ramping) {
-      currentPWM = currentPWM + (millis() - timeSince) * rampRate;
+      int now = millis();
+      currentPWM = currentPWM + (now - timeSince)/10 * rampRate ;
+      timeSince = now;
       if (debug){
-        //Serial.print(currentPWM);
+        Serial.print("currentPWM: ");
+        Serial.print(currentPWM);
+        Serial.print("\n");
+        Serial.print("now: ");
+        Serial.print(now);
+        Serial.print("\n");
+        Serial.print("timeSince: ");
+        Serial.print(timeSince);
+        Serial.print("\n");
       }
-      analogWrite(pwm_pin, currentPWM);
-      timeSince = millis();
+      //analogWrite(pwm_pin, currentPWM);
+      
       //when ramped to max Duty Cycle
       if (currentPWM >= 255) {
-        //ramping = false;
+        ramping = false;
       }
       if (currentPWM > 255) {
         currentPWM = 255;
       }
-    } else {
-      analogWrite(pwm_pin, initPWM);
+    } else { //initial
       timeSince = millis();
-      currentPWM = initPWM; //init current PWM
+      //currentPWM = initPWM; //init current PWM
       ramping = true;
+      
+      Serial.print("In here: ");
+      Serial.print("\n");
     }
+}
+
+void printPWM(){
+  Serial.print("currentPWM: ");
+  Serial.print(currentPWM);
+  Serial.print("\n");
+}
+
+void printState(){
+  Serial.print("state: ");
+  Serial.print(state);
+  Serial.print("\n");
 }
