@@ -8,8 +8,9 @@ int command = 0; //0-no command, 1-brake, 2-forward, 3-reverse
 int speed = 0; //Speed int RPM
 int currentPWM = 0; //current PWM duty cycle
 int timeSince = 0; //time since last PWM write in millisecond
-int rampRate = 1; //0-255 per milisecond; initial ramp rate 1 per millisecond -> 0 - 100% in .255 sec
+float rampRate = 0.1; //0-255 per milisecond; initial ramp rate 1 per millisecond -> 0 - 100% in .255 sec
 int initPWM = 25; //starting duty cycle
+int targetSpeed = 150; //target speed from controller
 bool ramping = false;
 
 void setup() {
@@ -60,7 +61,7 @@ int execCommand(int state, int command){
     // statements
     if (state == 0 || state == 2) { //if idle or going forward
       //ramping
-      goForward(getSpeed());
+      goForward(getSpeed(),targetSpeed);
     }
     if (currentPWM < 255){
       return 2; //coast
@@ -79,11 +80,11 @@ int execCommand(int state, int command){
 }
 
 
-void goForward(int speed) {
+void goForward(int speed, int targetSpeed) {
   //Ramp PWM duty cycle
     if (ramping) {
       int now = millis();
-      currentPWM = currentPWM + (now - timeSince)/10 * rampRate ;
+      currentPWM = (int) currentPWM + (now - timeSince) * rampRate ;
       timeSince = now;
       if (debug){
         Serial.print("currentPWM: ");
@@ -99,11 +100,11 @@ void goForward(int speed) {
       //analogWrite(pwm_pin, currentPWM);
       
       //when ramped to max Duty Cycle
-      if (currentPWM >= 255) {
+      if (currentPWM >= targetSpeed) {
         ramping = false;
       }
-      if (currentPWM > 255) {
-        currentPWM = 255;
+      if (currentPWM > targetSpeed) {
+        currentPWM = targetSpeed;
       }
     } else { //initial
       timeSince = millis();
