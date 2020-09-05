@@ -32,7 +32,7 @@ void loop() {
   
   // read the value from the sensor:
   sensorValue = analogRead(sensorPin);
-  int PWM = sensorValue;
+  unsigned int PWM = 2*(sensorValue/4 - 255/2) - 1;
 
   val = digitalRead(inPin);  // read input value
     
