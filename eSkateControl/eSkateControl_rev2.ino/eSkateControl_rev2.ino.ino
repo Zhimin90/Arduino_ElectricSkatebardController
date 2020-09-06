@@ -149,6 +149,7 @@ void loop() {
   //printPWM();
   //printState();
   //printCommand();
+  //printSpeed();
 
   //delay(10);
 } //loop ends
@@ -189,6 +190,7 @@ int execCommand(int state, int command){
       brakeOn = false;
       return ACCEL_R;
     }
+    
     //statements
     currentPWM = 0;
     targetSpeed = 0;
@@ -322,4 +324,9 @@ void printCommand(){
 void printTargetSpeed(){
   Serial.print("targetSpeed: ");
   Serial.println(targetSpeed);
+}
+
+void printSpeed(){
+  Serial.print("Current MPH: ");
+  Serial.println(mph);
 }
