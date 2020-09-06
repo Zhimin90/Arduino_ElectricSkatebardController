@@ -77,7 +77,9 @@ void loop() {
     pulses=0;
   }
   if (rps > 0) {
-    //Serial.println(rps);
+    Serial.print("Duty Cycle: ");
+    Serial.println(currentPWM/15);
+    Serial.print("MPH: ");
     Serial.println(mph);
   }
   rps = 0;
