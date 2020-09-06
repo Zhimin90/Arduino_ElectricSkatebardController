@@ -43,6 +43,7 @@ int initPWM = 25; //starting duty cycle with 255 as 100% Duty Cycle
 int DEADZONE = 20; //minimum command threshold for PWM 0 - 255
 float rampRate = 0.1; //0-255 per milisecond; initial ramp rate 1 per millisecond -> 0 - 100% in .255 sec
 float brakeRate = 0.03;
+int reverseTime = 10000; //Time the controller wait in brake until reversing in milliseconds
 
 //Control Structure
 int state = IDLE; //0-idle,1-braking,2-forward,3-reverse, 4-coast
@@ -52,8 +53,10 @@ int breakTimer = 0; //brake to reverse timer
 
 //Runtime values
 int targetSpeed = 0; //target speed 0 - 255 from remote control
+int targetBrake = 0; //For low frequency brake pulse
 bool ramping = false;
 bool reversing = false;
+bool brakeOn = false;
 
 void setup() {
   Serial.begin(9600);
@@ -96,8 +99,10 @@ void loop() {
 
   //Execute command regardless of remote control
   state = execCommand(state,command);
-  
-  if ((millis()-timeold) > 100) { //this part of the code calculates the rpm and rps in a way that every time the magnet passes by the sensor, the time between the pulses is measured and rpm and rps is calculated
+
+  //this part of the code calculates the rpm and rps in a way that every time the
+  //magnet passes by the sensor, the time between the pulses is measured and rpm and rps is calculated
+  if ((millis()-timeold) > 100) {
     rpm = 60000.0/(millis()-timeold)*pulses / 10; //10 rising edges per revolution
     rps=rpm/60.0;
     mph=rps*60*60*PI*wheelSize*1e-6*0.621371;
@@ -119,7 +124,7 @@ void loop() {
   } else {
     analogWrite(reverse_pin, 0);
   }
-  if (state == BRAKING) {
+  if (state == BRAKING && brakeOn == true) {
     analogWrite(brake_pin, 255);
   } else {
     analogWrite(brake_pin, 0);
@@ -130,7 +135,7 @@ void loop() {
   printState();
   printCommand();
 
-  //delay(500);
+  //delay(50);
 } //loop ends
 
 int getCommand(int PWM) {
@@ -144,6 +149,7 @@ int getCommand(int PWM) {
 }
 
 int execCommand(int state, int command){
+  int timeSinceBraking;
   switch (command) {
   case C_NOCOMMAND: //no command
     // statements
@@ -152,15 +158,20 @@ int execCommand(int state, int command){
     reversing = false;
     ramping = false;
     breakTimer = 0;
+    brakeOn = false;
     //////////////////////////////
     //Add code to tell if coasting or idle
     return IDLE;
     break;
   case C_BRAKE: //brake
-    Serial.print("breakTimer");
-    Serial.println(breakTimer);
-    if ((millis() - breakTimer) > 20000 && breakTimer != 0){
+    //Serial.print("breakTimer: ");
+    //Serial.println(breakTimer);
+    timeSinceBraking = millis() - breakTimer;
+    if (timeSinceBraking > reverseTime && breakTimer != 0){
+      //Serial.print("reversing: ");
+      //Serial.println(timeSinceBraking);
       brakeReverse(targetSpeed);
+      brakeOn = false;
       return ACCEL_R;
     }
     //statements
@@ -168,7 +179,8 @@ int execCommand(int state, int command){
     targetSpeed = 0;
     if (breakTimer == 0){
       breakTimer = millis(); //Aggregate time
-    } 
+    }
+    pulseBrake(breakTimer); 
     return BRAKING;
     break;
   case C_FORWARD: //go forward
@@ -182,6 +194,7 @@ int execCommand(int state, int command){
   case C_BACKWARD:
     // statements
     breakTimer = 0;
+    brakeOn = false;
     brakeReverse(targetSpeed);
     return ACCEL_R;
     break;
@@ -194,6 +207,7 @@ int execCommand(int state, int command){
 
 void goForward(int targetSpeed) {
   reversing = false;
+  brakeOn = false;
   //Ramp PWM duty cycle
     if (ramping) {
       int now = millis();
@@ -232,6 +246,27 @@ void brakeReverse(int targetBrake) {
       ramping = true;
       Serial.println("In here first brake ramp");
     }
+}
+
+void pulseBrake(int firstBrakeTriger) {
+  int now = millis();
+  int sinceFirstBrakeTriger = now - firstBrakeTriger;
+  int frequency = 50; //100 milliseconds
+  float dutyCycle = 20.00;
+  float dwellTime = 0;
+  //check ramp value;
+  dutyCycle = dutyCycle + brakeRate * sinceFirstBrakeTriger * 1;
+
+  //Calc brake on dwell time.
+  dwellTime = (sinceFirstBrakeTriger % frequency) * 100 / frequency ;
+  Serial.print("dwellTime: ");
+  Serial.println(dwellTime);
+  if (dwellTime < dutyCycle) {
+    //Check if on brake on phase.
+    brakeOn = true;
+  } else {
+    brakeOn = false;
+  }
 }
 
 //this subprogram will run when interrupt is triggered

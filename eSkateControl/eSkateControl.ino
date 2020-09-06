@@ -3,13 +3,16 @@ bool debug = true;
 int pwm_pin = 6;
 int brake_pin = 7;
 int feedback_pin = 8;
+
+int initPWM = 25; //starting duty cycle
+float rampRate = 0.1; //0-255 per milisecond; initial ramp rate 1 per millisecond -> 0 - 100% in .255 sec
+//Control Structure
 int state = 0; //0-idle,1-braking,2-forward,3-reverse, 4-coast
 int command = 0; //0-no command, 1-brake, 2-forward, 3-reverse
 int speed = 0; //Speed int RPM
 int currentPWM = 0; //current PWM duty cycle
 int timeSince = 0; //time since last PWM write in millisecond
-float rampRate = 0.1; //0-255 per milisecond; initial ramp rate 1 per millisecond -> 0 - 100% in .255 sec
-int initPWM = 25; //starting duty cycle
+//Runtime values
 int targetSpeed = 150; //target speed from controller
 bool ramping = false;
 
