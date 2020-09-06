@@ -50,6 +50,7 @@ int state = IDLE; //0-idle,1-braking,2-forward,3-reverse, 4-coast
 int command = C_NOCOMMAND; //0-no command, 1-brake, 2-forward, 3-reverse
 int timeSince = 0; //time since last PWM write in millisecond
 int breakTimer = 0; //brake to reverse timer
+int remoteTimer = 0; //remote time since last connection
 
 //Runtime values
 int targetSpeed = 0; //target speed 0 - 255 from remote control
@@ -94,7 +95,21 @@ void loop() {
     }
 
     //printTargetSpeed();
+    remoteTimer = 0;
+  } else {
+    remoteTimer++;
+  }
+
+  //Disconnect remote command when no signal
+  if (remoteTimer > 5000) {
+    int PWM = 0;
+    command = getCommand(PWM);
     
+    //Update I/Os
+    targetSpeed = PWM; //Write to global scope
+    if (reversing) {
+      targetSpeed = -PWM;
+    }
   }
 
   //Execute command regardless of remote control
