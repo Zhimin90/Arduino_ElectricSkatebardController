@@ -26,6 +26,7 @@ bool debug = true; //Serial print toggle
 int pwm_pin = 2;
 int hall_pin = 3;
 int brake_pin = 4;
+int reverse_pin = 5;
 long currentPWM = 0; //current PWM duty cycle
 
 //ENCODER
@@ -41,6 +42,7 @@ float wheelSize = 70; //Diameter of wheel for Speed Calc
 int initPWM = 25; //starting duty cycle with 255 as 100% Duty Cycle
 int DEADZONE = 20; //minimum command threshold for PWM 0 - 255
 float rampRate = 0.1; //0-255 per milisecond; initial ramp rate 1 per millisecond -> 0 - 100% in .255 sec
+float brakeRate = 0.03;
 
 //Control Structure
 int state = IDLE; //0-idle,1-braking,2-forward,3-reverse, 4-coast
@@ -50,6 +52,7 @@ int timeSince = 0; //time since last PWM write in millisecond
 //Runtime values
 int targetSpeed = 0; //target speed 0 - 255 from remote control
 bool ramping = false;
+bool reversing = false;
 
 void setup() {
   Serial.begin(9600);
@@ -61,6 +64,7 @@ void setup() {
   pinMode(pwm_pin, OUTPUT);
   pinMode(hall_pin, INPUT);
   pinMode(brake_pin, OUTPUT);
+  pinMode(reverse_pin, OUTPUT);
 
   attachInterrupt(digitalPinToInterrupt(hall_pin),counter,RISING);  //attaching the interrupt and declaring the variables, one of the interrupt pins on Nano is D2, and has to be declared as 0 here
     pulses=0;
@@ -81,7 +85,12 @@ void loop() {
 
     //Update I/Os
     targetSpeed = PWM; //Write to global scope
+    if (reversing) {
+      targetSpeed = -PWM;
+    }
 
+    printTargetSpeed();
+    
   }
 
   //Execute command regardless of remote control
@@ -104,13 +113,20 @@ void loop() {
   
   //Update I/Os
   analogWrite(pwm_pin, currentPWM);
+  if (state == BRAKING) {
+    //analogWrite(brake_pin, 255);
+    analogWrite(reverse_pin, 255);
+  } else {
+    //analogWrite(brake_pin, 0);
+    analogWrite(reverse_pin, 0);
+  }
 
   //Dev Prints
   printPWM();
   printState();
   printCommand();
 
-  delay(10);
+  //delay(500);
 } //loop ends
 
 int getCommand(int PWM) {
@@ -129,9 +145,18 @@ int execCommand(int state, int command){
     // statements
     currentPWM = 0;
     targetSpeed = 0;
+    reversing = false;
+    ramping = false;
+    //////////////////////////////
+    //Add code to tell if coasting or idle
+    return IDLE;
     break;
   case C_BRAKE: //brake
-    // statements
+    //statements
+    //currentPWM = 0;
+    //targetSpeed = 0;
+    brake(targetSpeed);
+    return BRAKING;
     break;
   case C_FORWARD: //go forward
     // statements
@@ -139,14 +164,9 @@ int execCommand(int state, int command){
       //ramping
       goForward(targetSpeed);
     }
-    if (currentPWM < 255){
-      return 2; //coast
-    } else {
-      return 4; // coast
-    }
-    
+    return ACCEL_F;    
     break;
-  case 3:
+  case C_BACKWARD:
     // statements
     break;
   default: //4 - coast
@@ -157,6 +177,7 @@ int execCommand(int state, int command){
 
 
 void goForward(int targetSpeed) {
+  reversing = false;
   //Ramp PWM duty cycle
     if (ramping) {
       int now = millis();
@@ -171,6 +192,29 @@ void goForward(int targetSpeed) {
       timeSince = millis();
       ramping = true;
       Serial.println("In here first ramp");
+    }
+}
+
+void brake(int targetBrake) {
+  //This brake function reverses the motor at increasing duty cycle until brake is released
+  //targetSpeed = targetBrake;
+  reversing = true;
+  //Ramp PWM duty cycle
+    if (ramping) {
+      int now = millis();
+      currentPWM = (int) currentPWM + (now - timeSince) * brakeRate ;
+      timeSince = now;
+      
+      //when ramped to max Duty Cycle
+      if (currentPWM >= targetSpeed) {
+        Serial.print(targetSpeed);
+        currentPWM = targetSpeed; //Stop the ramping
+        ramping = false;
+      }
+    } else { //initial
+      timeSince = millis();
+      ramping = true;
+      Serial.println("In here first brake ramp");
     }
 }
 
@@ -193,10 +237,23 @@ void printState(){
   Serial.print("\n");
   Serial.print("ramping: ");
   Serial.println(ramping);
+  Serial.print("reversing: ");
+  Serial.println(reversing);
+  Serial.print("braking: ");
+  if (state == BRAKING) {
+    Serial.println(true);
+  } else {
+    Serial.println(true);
+  }
 }
 
 void printCommand(){
   Serial.print("command: ");
   Serial.print(command);
   Serial.print("\n");
+}
+
+void printTargetSpeed(){
+  Serial.print("targetSpeed: ");
+  Serial.println(targetSpeed);
 }
