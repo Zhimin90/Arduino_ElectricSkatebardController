@@ -48,6 +48,7 @@ float brakeRate = 0.03;
 int state = IDLE; //0-idle,1-braking,2-forward,3-reverse, 4-coast
 int command = C_NOCOMMAND; //0-no command, 1-brake, 2-forward, 3-reverse
 int timeSince = 0; //time since last PWM write in millisecond
+int breakTimer = 0; //brake to reverse timer
 
 //Runtime values
 int targetSpeed = 0; //target speed 0 - 255 from remote control
@@ -113,12 +114,15 @@ void loop() {
   
   //Update I/Os
   analogWrite(pwm_pin, currentPWM);
-  if (state == BRAKING) {
-    //analogWrite(brake_pin, 255);
+  if (state == ACCEL_R) {
     analogWrite(reverse_pin, 255);
   } else {
-    //analogWrite(brake_pin, 0);
     analogWrite(reverse_pin, 0);
+  }
+  if (state == BRAKING) {
+    analogWrite(brake_pin, 255);
+  } else {
+    analogWrite(brake_pin, 0);
   }
 
   //Dev Prints
@@ -147,15 +151,24 @@ int execCommand(int state, int command){
     targetSpeed = 0;
     reversing = false;
     ramping = false;
+    breakTimer = 0;
     //////////////////////////////
     //Add code to tell if coasting or idle
     return IDLE;
     break;
   case C_BRAKE: //brake
+    Serial.print("breakTimer");
+    Serial.println(breakTimer);
+    if ((millis() - breakTimer) > 20000 && breakTimer != 0){
+      brakeReverse(targetSpeed);
+      return ACCEL_R;
+    }
     //statements
-    //currentPWM = 0;
-    //targetSpeed = 0;
-    brake(targetSpeed);
+    currentPWM = 0;
+    targetSpeed = 0;
+    if (breakTimer == 0){
+      breakTimer = millis(); //Aggregate time
+    } 
     return BRAKING;
     break;
   case C_FORWARD: //go forward
@@ -168,6 +181,9 @@ int execCommand(int state, int command){
     break;
   case C_BACKWARD:
     // statements
+    breakTimer = 0;
+    brakeReverse(targetSpeed);
+    return ACCEL_R;
     break;
   default: //4 - coast
     // statements
@@ -195,7 +211,7 @@ void goForward(int targetSpeed) {
     }
 }
 
-void brake(int targetBrake) {
+void brakeReverse(int targetBrake) {
   //This brake function reverses the motor at increasing duty cycle until brake is released
   //targetSpeed = targetBrake;
   reversing = true;
@@ -243,7 +259,7 @@ void printState(){
   if (state == BRAKING) {
     Serial.println(true);
   } else {
-    Serial.println(true);
+    Serial.println(false);
   }
 }
 
