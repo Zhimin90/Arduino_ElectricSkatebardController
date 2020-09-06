@@ -27,7 +27,7 @@ int pwm_pin = 2;
 int hall_pin = 3;
 int brake_pin = 4;
 int reverse_pin = 5;
-long currentPWM = 0; //current PWM duty cycle
+float currentPWM = 0; //current PWM duty cycle
 
 //ENCODER
 //declaring the variables used for the encoder
@@ -43,7 +43,7 @@ int initPWM = 25; //starting duty cycle with 255 as 100% Duty Cycle
 int DEADZONE = 20; //minimum command threshold for PWM 0 - 255
 float rampRate = 0.1; //0-255 per milisecond; initial ramp rate 1 per millisecond -> 0 - 100% in .255 sec
 float brakeRate = 0.03;
-int reverseTime = 10000; //Time the controller wait in brake until reversing in milliseconds
+int reverseTime = 3000; //Time the controller wait in brake until reversing in milliseconds
 
 //Control Structure
 int state = IDLE; //0-idle,1-braking,2-forward,3-reverse, 4-coast
@@ -93,7 +93,7 @@ void loop() {
       targetSpeed = -PWM;
     }
 
-    printTargetSpeed();
+    //printTargetSpeed();
     
   }
 
@@ -131,11 +131,11 @@ void loop() {
   }
 
   //Dev Prints
-  printPWM();
-  printState();
-  printCommand();
+  //printPWM();
+  //printState();
+  //printCommand();
 
-  //delay(50);
+  //delay(10);
 } //loop ends
 
 int getCommand(int PWM) {
@@ -211,7 +211,7 @@ void goForward(int targetSpeed) {
   //Ramp PWM duty cycle
     if (ramping) {
       int now = millis();
-      currentPWM = (int) currentPWM + (now - timeSince) * rampRate ;
+      currentPWM = currentPWM + (now - timeSince) * rampRate ;
       timeSince = now;
       //when ramped to max Duty Cycle
       if (currentPWM >= targetSpeed) {
@@ -221,7 +221,7 @@ void goForward(int targetSpeed) {
     } else { //initial
       timeSince = millis();
       ramping = true;
-      Serial.println("In here first ramp");
+      //Serial.println("In here first ramp");
     }
 }
 
@@ -232,19 +232,19 @@ void brakeReverse(int targetBrake) {
   //Ramp PWM duty cycle
     if (ramping) {
       int now = millis();
-      currentPWM = (int) currentPWM + (now - timeSince) * brakeRate ;
+      currentPWM = currentPWM + (now - timeSince) * brakeRate;
       timeSince = now;
       
       //when ramped to max Duty Cycle
       if (currentPWM >= targetSpeed) {
-        Serial.print(targetSpeed);
+        //Serial.print(targetSpeed);
         currentPWM = targetSpeed; //Stop the ramping
         ramping = false;
       }
     } else { //initial
       timeSince = millis();
       ramping = true;
-      Serial.println("In here first brake ramp");
+      //Serial.println("In here first brake ramp");
     }
 }
 
@@ -259,8 +259,8 @@ void pulseBrake(int firstBrakeTriger) {
 
   //Calc brake on dwell time.
   dwellTime = (sinceFirstBrakeTriger % frequency) * 100 / frequency ;
-  Serial.print("dwellTime: ");
-  Serial.println(dwellTime);
+  //Serial.print("dwellTime: ");
+  //Serial.println(dwellTime);
   if (dwellTime < dutyCycle) {
     //Check if on brake on phase.
     brakeOn = true;
